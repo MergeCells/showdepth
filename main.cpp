@@ -43,6 +43,14 @@ PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC glCheckFramebufferStatusEXT;
 static int layer = 0;
 
 /*
+** 光源
+*/
+static const GLfloat lightpos[] = { 4.0, 9.0, 5.0, 1.0 }; /* 位置　　　　　　　 */
+static const GLfloat lightcol[] = { 1.0, 1.0, 1.0, 1.0 }; /* 直接光強度　　　　 */
+static const GLfloat lightamb[] = { 0.1, 0.1, 0.1, 1.0 }; /* 環境光強度　　　　 */
+
+
+/*
 ** テクスチャの大きさ
 */
 #define TEXWIDTH  1024                                     /* テクスチャの幅　　 */
@@ -266,6 +274,7 @@ static void display(void)
   /* デプステストを有効にする */
   glEnable(GL_DEPTH_TEST);
 
+  //layer = 2;
   for (int i = 0; i <= layer; ++i) {
 
 	  /* デプスバッファをデプステクスチャにコピー */
