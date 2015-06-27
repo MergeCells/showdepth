@@ -11,7 +11,6 @@ void main (void)
 	if(color == 1) {
 		gl_FragColor = vec4(0,0,0,1);
 	}else{
-	
 		color *= 6;
 
 		if( 0 <= color && color < 1 )		{r = 1;			g = color;		b = 0;}
