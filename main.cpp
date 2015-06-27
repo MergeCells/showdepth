@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 #if defined(WIN32)
 //#  pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
@@ -43,10 +44,29 @@ PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC glCheckFramebufferStatusEXT;
 static int layer = 0;
 
 /*
+** 光源
+*/
+static const GLfloat lightpos[] = { 4.0, 9.0, 5.0, 1.0 }; /* 位置　　　　　　　 */
+static const GLfloat lightcol[] = { 1.0, 1.0, 1.0, 1.0 }; /* 直接光強度　　　　 */
+static const GLfloat lightamb[] = { 0.1, 0.1, 0.1, 1.0 }; /* 環境光強度　　　　 */
+
+/*
 ** テクスチャの大きさ
 */
 #define TEXWIDTH  1024                                     /* テクスチャの幅　　 */
 #define TEXHEIGHT 1024                                     /* テクスチャの高さ　 */
+
+/*
+**STL読み込み
+*/
+// STLデータのファイル名．
+//#define STL_FILE "sample.stl"
+#define STL_FILE "iPhone_Basic.stl"
+//#define STL_FILE "T01_FINISH.stl"
+//#define STL_FILE "FINISH_Ascii.stl"
+
+// STLファイルの読み込み．
+extern bool loadSTLFile(const char* STL_file);
 
 /*
 ** テクスチャオブジェクト・フレームバッファオブジェクト
@@ -251,7 +271,11 @@ static void display(void)
 	/* ビューポートをテクスチャのサイズに設定する */
 	glViewport(0, 0, TEXWIDTH, TEXHEIGHT);
 
+	GLdouble projection[16]; /* 透視変換行列の保存用 */
+	int i;
+
 	/* モデルビュー変換行列の設定 */
+	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
 	/* 視点の位置を設定する（物体の方を奥に移動する）*/
@@ -260,13 +284,54 @@ static void display(void)
 	/* トラックボール式の回転を与える */
 	glMultMatrixd(trackballRotation());
 
+	/* 光源の位置を設定する */
+	glLightfv(GL_LIGHT0, GL_POSITION, lightpos);
+
+	/* テクスチャ変換行列を設定する */
+	glMatrixMode(GL_TEXTURE);
+	glLoadIdentity();
+
+	/* テクスチャ座標の [-1,1] の範囲を [0,1] の範囲に収める */
+	glTranslated(0.5, 0.5, 0.5);
+	glScaled(0.5, 0.5, 0.5);
+
+	/* 現在の透視変換行列を取り出す */
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+
+	/* 透視変換行列をテクスチャ変換行列に設定する */
+	glMultMatrixd(projection);
+
+	/* モデルビュー変換行列に戻す */
+	glMatrixMode(GL_MODELVIEW);
+
+	/* デプスバッファを０でクリア */
+	glClearDepth(0.0);
+	glClear(GL_DEPTH_BUFFER_BIT);
+
+	/* デプスバッファの消去値を１に戻す */
+	glClearDepth(1.0);
+
+	/* テクスチャマッピングとテクスチャ座標の自動生成を有効にする */
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_TEXTURE_GEN_S);
+	glEnable(GL_TEXTURE_GEN_T);
+	glEnable(GL_TEXTURE_GEN_R);
+	glEnable(GL_TEXTURE_GEN_Q);
+
+	/* アルファテストを有効にする */
+	glEnable(GL_ALPHA_TEST);
+
+	/* Polygon Offset を有効にする */
+	glEnable(GL_POLYGON_OFFSET_FILL);
+
 	/* フレームバッファオブジェクトへのレンダリング開始 */
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fb);
 
 	/* デプステストを有効にする */
 	glEnable(GL_DEPTH_TEST);
 
-	for (int i = 0; i <= layer; ++i) {
+	//layer = 1;
+	for (i = 0; i <= layer; ++i) {
 
 		/* デプスバッファをデプステクスチャにコピー */
 		glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, TEXWIDTH, TEXHEIGHT);
@@ -278,6 +343,19 @@ static void display(void)
 		scene();
 
 	}
+
+	/* Polygon Offset を無効にする */
+	glDisable(GL_POLYGON_OFFSET_FILL);
+
+	/* アルファテストを無効にする */
+	glDisable(GL_ALPHA_TEST);
+
+	/* テクスチャマッピングとテクスチャ座標の自動生成を無効にする */
+	glDisable(GL_TEXTURE_GEN_S);
+	glDisable(GL_TEXTURE_GEN_T);
+	glDisable(GL_TEXTURE_GEN_R);
+	glDisable(GL_TEXTURE_GEN_Q);
+	glDisable(GL_TEXTURE_2D);
 
 	/* フレームバッファオブジェクトへのレンダリング終了 */
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
@@ -314,6 +392,12 @@ static void display(void)
 
 static void resize(int w, int h)
 {
+	/* ウィンドウサイズの拡大縮小を制限する */
+	if (w != TEXWIDTH || h != TEXHEIGHT) {
+		if (w != TEXWIDTH) w = TEXWIDTH;
+		if (h != TEXHEIGHT) h = TEXHEIGHT;
+		glutReshapeWindow(w, h);
+	}
 	/* トラックボールする範囲 */
 	trackballRegion(w, h);
 
@@ -367,6 +451,7 @@ static void motion(int x, int y)
 
 static void keyboard(unsigned char key, int x, int y)
 {
+	std::cout << key << std::endl;
 	if (key >= '0' && key <= '9') {
 		/* '0'～'9' のキーで Depth Peeling のレイヤー変更 */
 		layer = key - '0';
